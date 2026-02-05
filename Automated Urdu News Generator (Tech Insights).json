@@ -1,0 +1,510 @@
+{
+  "name": "Automated Urdu News Generator (Tech Insights)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -640,
+        -592
+      ],
+      "id": "cbcbb7dd-270b-423f-b2df-4ce437c6128f",
+      "name": "Daily Cron Job (8:00 AM)"
+    },
+    {
+      "parameters": {
+        "url": "https://www.technologyreview.com/topic/artificial-intelligence/feed/",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -416,
+        -592
+      ],
+      "id": "4995fc00-9f86-4f67-b19f-1e4f93d51e0a",
+      "name": "Fetch RSS Feed"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.xml",
+      "typeVersion": 1,
+      "position": [
+        -192,
+        -592
+      ],
+      "id": "4ceef050-1b2f-4a5d-910e-89d1926073f6",
+      "name": "Parse XML Data"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "rss.channel.item",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        32,
+        -592
+      ],
+      "id": "8e384d1f-1be8-462e-a110-77176dc79cce",
+      "name": "Split Items"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "1557b97b-128f-42fc-9459-1c350c098d85",
+              "leftValue": "={{ $json.title }}",
+              "rightValue": "={{ $now.minus({ days: 1 }) }}",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        256,
+        -592
+      ],
+      "id": "2ce3e56e-871b-4ef2-bd85-19a57d9d13a3",
+      "name": "Filter Valid News"
+    },
+    {
+      "parameters": {
+        "maxItems": 2
+      },
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        480,
+        -592
+      ],
+      "id": "712d0554-2918-4b48-81f9-65ab19bc7f61",
+      "name": "Limit Top 2"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "builtInTools": {},
+        "options": {
+          "temperature": 0.7
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        704,
+        -352
+      ],
+      "id": "7dd4bb29-d26b-41f8-b07c-8246e4efa36e",
+      "name": "GPT-4o Model Config"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "Tum aik expert AI News Editor ho. Tumhare paas mukhtalif technical sources se news aayi hain. In mein se sirf wo 3 ahem news select karo jo Artificial Intelligence, Automation, ya n8n se judi hon.\n\nInstructions:\n\nHar khabar ka aik mukhtasar aur ahem point asaan Urdu mein likho.\n\nAlfaaz ka intekhab aisa ho jo Jameel Noori Nastaleeq font mein khubsurat lagay.\n\nHar point 10-12 alfaaz se zyada na ho taake design clean rahay.\n\nOutput sirf aik JSON list ki shakal mein do jis mein field ka naam points ho.\"",
+        "hasOutputParser": true,
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        704,
+        -592
+      ],
+      "id": "bed7cbda-df03-4113-8765-cbc184d50d1c",
+      "name": "AI Summarization Agent"
+    },
+    {
+      "parameters": {
+        "jsCode": "const rawText = $json.text.replace(/```json|```/g, \"\").trim();\nreturn JSON.parse(rawText);"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1056,
+        -592
+      ],
+      "id": "c78d55c3-1147-4fbf-816b-7437f4d3f4f4",
+      "name": "JSON Parser / Cleaner"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Final Master Code: Fixed Layout + Direct Data Link\n\n// 1. Data Fetching (Sab se pehle Direct Array check karein)\nlet newsPoints = [];\n\n// Agar data seedha 'points' list mein aa raha hai (Jo aapke case mein ho raha hai)\nif ($json.points && Array.isArray($json.points)) {\n    newsPoints = $json.points;\n} \n// Agar data text string mein chupa hua hai (Fallback)\nelse {\n    const rawText = $json.text || $json.output || \"\";\n    if (rawText.length > 10) {\n        try {\n            const cleanText = rawText.replace(/```json\\n|```/g, \"\").trim();\n            const parsed = JSON.parse(cleanText);\n            if (parsed.points) newsPoints = parsed.points;\n        } catch (e) {\n            console.log(\"Parsing error\");\n        }\n    }\n}\n\n// 2. Default Fallback (Agar waqai koi news na mile)\nif (newsPoints.length === 0) {\n    newsPoints = [\n        \"تازہ ترین خبریں لوڈ ہو رہی ہیں...\",\n        \"ٹیکنالوجی کی دنیا میں انقلاب\",\n        \"باخبر رہیں، آگے بڑھیں\"\n    ];\n}\n\n// 3. Smart Layout HTML (Flexbox + Auto Height)\nconst htmlContent = `\n<link href=\"https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu&display=swap\" rel=\"stylesheet\">\n<div style=\"direction: rtl; width: 650px; height: 500px; background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); border-radius: 28px; padding: 40px; box-sizing: border-box; position: relative; overflow: hidden; font-family: 'Noto Nastaliq Urdu', serif; color: white; box-shadow: 0 30px 70px rgba(0,0,0,0.6); display: flex; flex-direction: column; justify-content: space-between;\">\n    \n    <div style=\"position:absolute; inset:0; border-radius:28px; padding:2px; background:linear-gradient(120deg,#fbbf24,#38bdf8,#a78bfa); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;\"></div>\n    \n    <div style=\"text-align:center; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:15px; flex-shrink: 0;\">\n        <div style=\"font-size:32px; letter-spacing:1px; color:#fbbf24; text-shadow: 0 0 10px rgba(251, 191, 36, 0.4);\">🚀 اے آئی نیوز اپڈیٹ</div>\n    </div>\n\n    <div style=\"flex-grow:1; display:flex; flex-direction:column; justify-content:center; padding: 10px 0;\">\n        <ul style=\"list-style:none; padding:0; margin:0;\">\n            <li style=\"margin-bottom:12px; padding:12px 18px; border-right:5px solid #38bdf8; background:rgba(255,255,255,0.05); border-radius:12px; font-size: 20px; line-height: 1.6;\">${newsPoints[0] || \"\"}</li>\n            <li style=\"margin-bottom:12px; padding:12px 18px; border-right:5px solid #38bdf8; background:rgba(255,255,255,0.05); border-radius:12px; font-size: 20px; line-height: 1.6;\">${newsPoints[1] || \"\"}</li>\n            <li style=\"margin-bottom:12px; padding:12px 18px; border-right:5px solid #38bdf8; background:rgba(255,255,255,0.05); border-radius:12px; font-size: 20px; line-height: 1.6;\">${newsPoints[2] || \"\"}</li>\n        </ul>\n    </div>\n\n    <div style=\"display:flex; justify-content:space-between; align-items:center; font-family:sans-serif; font-size:14px; color:#94a3b8; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px; flex-shrink: 0;\">\n        <div style=\"background:linear-gradient(90deg,#fbbf24,#f59e0b); color:#0f172a; padding:6px 14px; border-radius:8px; font-weight:bold; letter-spacing:1px;\">TECH INSIGHTS</div>\n        <div style=\"font-size:18px; color:#f8fafc;\">ایڈیٹر: <b>عبداللہ زاہد</b></div>\n    </div>\n</div>`.replace(/\\n/g, ' ');\n\nreturn { html: htmlContent };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1280,
+        -592
+      ],
+      "id": "adf8b517-1a41-4231-903e-f75ba771ba7c",
+      "name": "HTML Renderer Engine"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://hcti.io/v1/image",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "html",
+              "value": "={{ $json.html }}"
+            },
+            {
+              "name": "ms_delay",
+              "value": "500"
+            },
+            {
+              "name": "width",
+              "value": "600"
+            },
+            {
+              "name": "height",
+              "value": "400"
+            }
+          ]
+        },
+        "options": {
+          "allowUnauthorizedCerts": true,
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1504,
+        -592
+      ],
+      "id": "a5e5ec73-c2d3-4d9d-97b6-f8fd5f2a435c",
+      "name": "Generate Image (HCTI)"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1728,
+        -592
+      ],
+      "id": "e2e3761c-56c0-45ad-8b73-b4bc1b9df6e0",
+      "name": "Download Image Binary"
+    },
+    {
+      "parameters": {
+        "resource": "media",
+        "phoneNumberId": "951361914725440",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        1952,
+        -592
+      ],
+      "id": "0f5773fa-261e-4814-9707-be5d44407a13",
+      "name": "WhatsApp Media Upload",
+      "webhookId": "9aa29a53-8dcf-4cad-b80b-917a305d934a"
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "951361914725440",
+        "recipientPhoneNumber": "=+923043956956",
+        "messageType": "image",
+        "mediaPath": "useMediaId",
+        "mediaId": "={{ $json.id }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        2176,
+        -592
+      ],
+      "id": "6d6a25c1-dab3-4f5f-a535-93cc588e3e5a",
+      "name": "Broadcast to Group",
+      "webhookId": "41b9c187-8b4c-4a7a-b7af-b28155f8a41a",
+      "credentials": {
+        "whatsAppApi": {
+          "id": "VPL3A66yzx6LQivO",
+          "name": "WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## 📡 Data Ingestion Layer\nFetches the latest technology news from RSS feeds, parses XML to JSON, and filters for the most relevant story.",
+        "height": 368,
+        "width": 576
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -432,
+        -768
+      ],
+      "typeVersion": 1,
+      "id": "cdf2e283-1f0d-49c7-b34f-ee6d3d6f7bfb",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "## 🧠 AI Agent Layer\nUses OpenAI (GPT-4o) to summarize the news into 3 bullet points in Urdu and cleans the JSON output for rendering.",
+        "height": 576,
+        "width": 288,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        672,
+        -768
+      ],
+      "typeVersion": 1,
+      "id": "bed33ac0-2c55-4d47-962e-e0667bc0181c",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "## 🎨 Dynamic HTML Rendering\nGenerates a premium dark-themed visual card using HTML/CSS and converts it to an image via API.",
+        "height": 336,
+        "width": 416,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1456,
+        -768
+      ],
+      "typeVersion": 1,
+      "id": "51e707aa-aec8-4691-8892-ff00482bd15b",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "## 🚀 WhatsApp Delivery\nUploads the generated image binary and broadcasts it to the WhatsApp community with a caption.",
+        "height": 368,
+        "width": 432,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1904,
+        -784
+      ],
+      "typeVersion": 1,
+      "id": "f95325d3-b772-4fec-b338-83b6007aea37",
+      "name": "Sticky Note3"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Daily Cron Job (8:00 AM)": {
+      "main": [
+        [
+          {
+            "node": "Fetch RSS Feed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch RSS Feed": {
+      "main": [
+        [
+          {
+            "node": "Parse XML Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse XML Data": {
+      "main": [
+        [
+          {
+            "node": "Split Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Items": {
+      "main": [
+        [
+          {
+            "node": "Filter Valid News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Valid News": {
+      "main": [
+        [
+          {
+            "node": "Limit Top 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit Top 2": {
+      "main": [
+        [
+          {
+            "node": "AI Summarization Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GPT-4o Model Config": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Summarization Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Summarization Agent": {
+      "main": [
+        [
+          {
+            "node": "JSON Parser / Cleaner",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "JSON Parser / Cleaner": {
+      "main": [
+        [
+          {
+            "node": "HTML Renderer Engine",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTML Renderer Engine": {
+      "main": [
+        [
+          {
+            "node": "Generate Image (HCTI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Image (HCTI)": {
+      "main": [
+        [
+          {
+            "node": "Download Image Binary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Image Binary": {
+      "main": [
+        [
+          {
+            "node": "WhatsApp Media Upload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WhatsApp Media Upload": {
+      "main": [
+        [
+          {
+            "node": "Broadcast to Group",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "4de13d51-e1e3-417a-8cd1-f50f6fcf8ae6",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "bc774d01a36b1358fe79243b064579e1db576ef896fd14a4bb69983aaa2dfc31"
+  },
+  "id": "jEkWd2EljviL2yenV4OKq",
+  "tags": []
+}
